@@ -3,7 +3,7 @@ FROM golang:latest
 MAINTAINER Open System Lab
 
 RUN mkdir /app
-ADD config/ /app/
+ADD config /app/config
 WORKDIR /app
 
 COPY bin/cookiemonster-linux-amd64 /app/cookiemonster

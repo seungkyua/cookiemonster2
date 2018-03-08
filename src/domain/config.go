@@ -2,9 +2,9 @@ package domain
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/spf13/viper"
-	"github.com/labstack/echo"
 )
 
 type Resource struct {
@@ -25,8 +25,18 @@ type Config struct {
 	Namespace []Namespace
 }
 
-func NewConfig() *Config {
-	return &Config{}
+var config *Config
+
+func init() {
+	path := "config"
+	config = &Config{}
+	if err := config.ReadConfig(path); err != nil {
+		log.Println(err)
+	}
+}
+
+func GetConfig() *Config {
+	return config
 }
 
 func (c *Config) ReadConfig(path string) error {
@@ -44,17 +54,5 @@ func (c *Config) ReadConfig(path string) error {
 		return fmt.Errorf("config file format error: %s \n", err)
 	}
 
-	return nil
-}
-
-/*
- * group.GET("", config.Get)
- */
-func (c *Config) SetHandler(group *echo.Group) {
-	group.GET("", c.Get)
-}
-
-// Get a config
-func (c *Config) Get(context echo.Context) error {
 	return nil
 }

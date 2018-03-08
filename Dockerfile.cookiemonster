@@ -1,0 +1,13 @@
+FROM golang:latest
+
+MAINTAINER Open System Lab
+
+RUN mkdir /app
+ADD config/ /app/
+WORKDIR /app
+
+COPY bin/cookiemonster-linux-amd64 /app/cookiemonster
+
+EXPOSE 8080
+
+CMD ["/app/cookiemonster", "-inKubeCluster=true"]

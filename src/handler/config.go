@@ -1,11 +1,14 @@
 package handler
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/labstack/echo"
 	"github.com/seungkyua/cookiemonster2/src/domain"
+
+	"log"
+	"math/rand"
+	"time"
 )
 
 type ConfigHandler struct{}
@@ -19,11 +22,11 @@ func (h ConfigHandler) SetHandler(group *echo.Group) {
 
 // Get a config
 func (h ConfigHandler) Get(context echo.Context) error {
-	path := "config"
-	c := domain.NewConfig()
-	if err := c.ReadConfig(path); err != nil {
-		fmt.Println(err)
-	}
+	log.Println("###########", randomInt(1))
+	return context.JSONPretty(http.StatusOK, domain.GetConfig(), "    ")
+}
 
-	return context.JSONPretty(http.StatusOK, c, "    ")
+func randomInt(i int) int {
+	rand.Seed(time.Now().UTC().UnixNano())
+	return rand.Intn(i)
 }

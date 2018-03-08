@@ -1,11 +1,11 @@
-package config_test
+package domain_test
 
 import (
 	"fmt"
 	"reflect"
 	"testing"
 
-	"github.com/seungkyua/cookiemonster2/src/pkg/config"
+	"github.com/seungkyua/cookiemonster2/src/domain"
 	"gopkg.in/yaml.v2"
 )
 
@@ -43,21 +43,23 @@ namespace:
 )
 
 func TestReadConfig(t *testing.T) {
-	path := "../../../config/"
-	var wantConfig config.Config
+	path := "../../config/"
+	var wantConfig domain.Config
 	if err := yaml.Unmarshal(rawConfig, &wantConfig); err != nil {
 		fmt.Println(err)
 	}
 
 	//fmt.Println(wantConfig)
 
-	gotConfig, err := config.ReadConfig(path)
+	//var gotConfig domain.Config
+	gotConfig := domain.NewConfig()
+	err := gotConfig.ReadConfig(path)
 	if err != nil {
 		fmt.Println(err)
 	}
 	//fmt.Println(gotConfig)
 
-	if !reflect.DeepEqual(wantConfig, gotConfig) {
+	if !reflect.DeepEqual(wantConfig, *gotConfig) {
 		t.Errorf("It was incorrect, got: %v, want: %v.", gotConfig, wantConfig)
 	}
 

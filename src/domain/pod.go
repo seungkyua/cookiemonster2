@@ -52,6 +52,6 @@ func (v *VictimPod) GetVictimPod(config *Config) error {
 		return err
 	}
 
-	log.Println(pods)
+	log.Println(*pods)
 	return nil
 }

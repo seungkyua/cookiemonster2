@@ -14,7 +14,7 @@ spec:
       serviceAccountName: cookiemonster
       containers:
       - name: cookiemonster
-        image: opensystemlab/cookiemonster:latest
+        image: seungkyua/cookiemonster:latest
         ports:
         - containerPort: 8080
         volumeMounts:

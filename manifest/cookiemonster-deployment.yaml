@@ -1,0 +1,26 @@
+---
+apiVersion: apps/v1beta1
+kind: Deployment
+metadata:
+  name: cookiemonster
+  namespace: cookiemonster
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: cookiemonster
+    spec:
+      serviceAccountName: cookiemonster
+      containers:
+      - name: cookiemonster
+        image: opensystemlab/cookiemonster:latest
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+      volumes:
+        - name: config
+          configMap:
+            name: cookiemonster-cm-config

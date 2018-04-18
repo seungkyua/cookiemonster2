@@ -52,7 +52,7 @@ func TestReadConfig(t *testing.T) {
 	//fmt.Println(wantConfig)
 
 	//var gotConfig domain.Config
-	gotConfig := domain.NewConfig()
+	gotConfig := domain.GetConfig()
 	err := gotConfig.ReadConfig(path)
 	if err != nil {
 		fmt.Println(err)

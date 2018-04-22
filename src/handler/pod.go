@@ -36,7 +36,7 @@ func (h PodHandler) List(c echo.Context) error {
 func (h PodHandler) Start(c echo.Context) error {
 	if m.Started {
 		log.Println("Pods is already being munched, ignoring request\n")
-		return nil
+		return c.String(http.StatusOK, "Pods is already being munched, ignoring request\n")
 	} else {
 		ctx, cancel := context.WithCancel(context.Background())
 		m.Ctx = ctx
@@ -52,17 +52,17 @@ func (h PodHandler) Start(c echo.Context) error {
 		}
 	}
 
-	return nil
+	return c.String(http.StatusOK, "Cookie Monster Start!!! \n")
 }
 
 func (h PodHandler) Stop(c echo.Context) error {
 	if !m.Started {
 		log.Println("Cookie Monster is currently munching, ignoring request\n")
-		return nil
+		return c.String(http.StatusOK, "Cookie Monster is currently munching, ignoring request\n")
 	}
 
 	m.Stop(domain.GetConfig())
-	log.Printf("Stop snacking.\n")
+	log.Println("Stop snacking.\n")
 
-	return nil
+	return c.String(http.StatusOK, "Cookie Monster Stop!!! \n")
 }

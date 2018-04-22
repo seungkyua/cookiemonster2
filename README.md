@@ -3,7 +3,8 @@
 brew install glide
 glide create
 
-go build -o bin/cookiemonster-linux-amd64 -v ./src/cmd/server.go
+make clean
+make build-linux
 make docker
 docker tag cookiemonster seungkyua/cookiemonster
 docker push seungkyua/cookiemonster

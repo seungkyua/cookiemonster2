@@ -15,6 +15,7 @@ spec:
       containers:
       - name: cookiemonster
         image: seungkyua/cookiemonster:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 8080
         volumeMounts:

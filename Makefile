@@ -1,8 +1,8 @@
-.PHONY: build clean docker
+.PHONY: build clean docker vendor
 
 default: build-local
 
-all: build docker
+all: vendor build docker
 
 build: build-darwin build-linux
 
@@ -23,3 +23,6 @@ clean:
 
 docker:
 	docker build --no-cache -t cookiemonster -f Dockerfile.cookiemonster .
+
+vendor:
+	glide install

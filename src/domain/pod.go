@@ -159,7 +159,7 @@ func (m *PodManage) SelectVictimPod(c *Config, ns string, kind string, name stri
 			fmt.Println(err)
 			return nil, false, err
 		} else if len(deps.Items) < 1 {
-			log.Printf("Can not find %s in namespace %s, doing nothing", kind, ns)
+			log.Printf("Can not find %s %s in namespace %s, doing nothing", kind, name, ns)
 			return nil, false, err
 		}
 
@@ -189,7 +189,7 @@ func (m *PodManage) SelectVictimPod(c *Config, ns string, kind string, name stri
 			fmt.Println(err)
 			return nil, false, err
 		} else if len(sss.Items) < 1 {
-			log.Printf("Can not find %s in namespace %s, doing nothing", kind, ns)
+			log.Printf("Can not find %s %s in namespace %s, doing nothing", kind, name, ns)
 			return nil, false, err
 		}
 
@@ -220,7 +220,7 @@ func (m *PodManage) SelectVictimPod(c *Config, ns string, kind string, name stri
 			fmt.Println(err)
 			return nil, false, err
 		} else if len(dss.Items) < 1 {
-			log.Printf("Can not find %s in namespace %s, doing nothing", kind, ns)
+			log.Printf("Can not find %s %s in namespace %s, doing nothing", kind, name, ns)
 			return nil, false, err
 		}
 

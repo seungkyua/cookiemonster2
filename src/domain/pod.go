@@ -75,27 +75,17 @@ func (m *PodManage) Start(c *Config) error {
 	}
 
 	timeout := time.After(time.Duration(c.Duration) * time.Second)
-	startTime := time.Now().Add(time.Duration(config.Duration) * time.Second)
-
 	go func() {
 		tick := time.Tick(time.Duration(c.Interval) * time.Second)
 		for {
-
 			select {
 			case <-timeout:
-				log.Println("Request Timeout !!!")
-				return
+				log.Println("Cookie Monster Duration Timeout !!!")
+				m.Stop(c)
 			case <-m.Ctx.Done():
 				return
 			case <-tick:
-				if startTime.Before(time.Now()) {
-					m.Stop(c)
-				} else {
-					err := m.MainLoop(c)
-					if err != nil {
-						return
-					}
-				}
+				m.MainLoop(c)
 			}
 		}
 	}()

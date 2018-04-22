@@ -10,4 +10,4 @@ COPY bin/cookiemonster-linux-amd64 /app/cookiemonster
 
 EXPOSE 8080
 
-CMD ["/app/cookiemonster", "-inKubeCluster=true"]
+CMD ["/app/cookiemonster"]

@@ -1,5 +1,5 @@
 namespace:
-  - name: openstack
+  - name: ceph
     resource:
     - kind: deployment
       name: rabbitmq

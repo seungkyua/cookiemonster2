@@ -16,15 +16,15 @@ var m = &domain.PodManage{
 }
 
 /*
- * group.GET("", pod.List)
- * group.GET("/:name", pod.Get)
- * group.DELETE("", pod.Delete)
+ * group.GET("", PodHandler.List)
+ * group.GET("/:name", PodHandler.Get)
+ * group.POST("/start", PodHandler.Start)
+ * group.POST("/stop", PodHandler.Stop)
  */
-
 func (h PodHandler) SetHandler(group *echo.Group) {
 	group.GET("", h.List)
-	group.DELETE("", h.Delete)
-	group.POST("", h.Stop)
+	group.POST("/start", h.Start)
+	group.POST("/stop", h.Stop)
 }
 
 // List running pods
@@ -33,7 +33,7 @@ func (h PodHandler) List(c echo.Context) error {
 }
 
 // Start a job to delete random pod
-func (h PodHandler) Delete(c echo.Context) error {
+func (h PodHandler) Start(c echo.Context) error {
 	if m.Started {
 		log.Println("Pods is already being munched, ignoring request\n")
 		return nil
@@ -46,7 +46,10 @@ func (h PodHandler) Delete(c echo.Context) error {
 
 	err := m.Start(domain.GetConfig())
 	if err != nil {
-		panic(err.Error())
+		log.Println(err)
+		if m.Started {
+			m.Stop(domain.GetConfig())
+		}
 	}
 
 	return nil
@@ -54,11 +57,12 @@ func (h PodHandler) Delete(c echo.Context) error {
 
 func (h PodHandler) Stop(c echo.Context) error {
 	if !m.Started {
-		log.Println("Cookie Monster is not running, ignoring request\n")
+		log.Println("Cookie Monster is currently munching, ignoring request\n")
 		return nil
 	}
 
 	m.Stop(domain.GetConfig())
+	log.Printf("Stop snacking.\n")
 
 	return nil
 }

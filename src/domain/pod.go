@@ -1,49 +1,80 @@
 package domain
 
 import (
+	"flag"
+	"fmt"
 	"log"
 	"math/rand"
+	"os"
+	"path/filepath"
+	"time"
 
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	apps_v1 "k8s.io/api/apps/v1"
+	"golang.org/x/net/context"
+	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"time"
-	"k8s.io/api/core/v1"
-	"golang.org/x/net/context"
-	"k8s.io/kubernetes/pkg/apis/core/pods"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
+var kubeconfig *string
 var ron = rand.New(rand.NewSource(time.Now().UnixNano()))
 
-func randomInt(i int) int {
+func RandomInt(i int) int {
 	return ron.Intn(i)
 }
 
 type PodManage struct {
-	Ctx		context.Context
-	Cancel	context.CancelFunc
-	Started	bool
+	Ctx     context.Context
+	Cancel  context.CancelFunc
+	Started bool
 }
 
-func connect() (*kubernetes.Clientset, error) {
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		log.Println(err)
-		return nil, err
-	}
+func Connect() (*kubernetes.Clientset, error) {
+	var config, err = rest.InClusterConfig()
+	if err == nil {
+		clientset, err := kubernetes.NewForConfig(config)
+		if err != nil {
+			log.Println(err)
+			return nil, err
+		}
 
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		log.Println(err)
-		return nil, err
-	}
+		return clientset, nil
+	} else {
+		if kubeconfig == nil {
+			if home := homeDir(); home != "" {
+				kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
+			} else {
+				kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
+			}
+			flag.Parse()
+		}
 
-	return clientset, nil
+		log.Println("Running out of Kubernetes cluster")
+		config, err = clientcmd.BuildConfigFromFlags("", *kubeconfig)
+		if err != nil {
+			panic(err.Error())
+			return nil, err
+		}
+
+		// create the clientset
+		clientset, err := kubernetes.NewForConfig(config)
+		if err != nil {
+			panic(err.Error())
+			return nil, err
+		}
+		return clientset, nil
+	}
 }
 
 func (m *PodManage) Start(c *Config) error {
 	log.Printf("Cookie Time!!! Random feast starting")
+
+	err := m.MainLoop(c)
+	if err != nil {
+		return err
+	}
 
 	tick := time.Tick(time.Duration(c.Namespace[0].Resource[0].Interval) * time.Second)
 	for {
@@ -51,34 +82,25 @@ func (m *PodManage) Start(c *Config) error {
 		case <-m.Ctx.Done():
 			return nil
 		case <-tick:
-			err := m.mainLoop(c)
+			err := m.MainLoop(c)
 			if err != nil {
 				return err
 			}
 		}
 	}
 
-	//for _, ns := range c.Namespace {
-	//	for _, res := range ns.Resource {
-	//		log.Printf("Cookie Time!!! Random feast starting on %s in namespace %s", res.Kind, ns)
-	//		tick := time.Tick(time.Duration(res.Interval) * time.Second)
-	//		err := m.mainLoop(tick, res.Kind)
-	//		if err != nil {
-	//			return err
-	//		}
-	//	}
-	//}
 	return nil
 }
 
-func (m *PodManage) mainLoop(c *Config) error {
+func (m *PodManage) MainLoop(c *Config) error {
+
 	for _, ns := range c.Namespace {
 		for _, res := range ns.Resource {
-			pod, found, err := m.SelectVictimPod(c, ns.Name, res.Kind)
+			pod, startKill, err := m.SelectVictimPod(c, ns.Name, res.Kind)
 			if err != nil {
 				return err
-			} else if found {
-				go killPod(pod, ns.Name, res.Kind)
+			} else if startKill {
+				go killPod(pod, ns.Name)
 			}
 		}
 	}
@@ -91,10 +113,7 @@ func (m *PodManage) Stop(c *Config) {
 }
 
 func (m *PodManage) SelectVictimPod(c *Config, ns string, kind string) (*v1.Pod, bool, error) {
-	var found bool
-	var pod v1.Pod
-
-	con, err := connect()
+	con, err := Connect()
 	if err != nil {
 		log.Println(err)
 		return nil, false, err
@@ -105,32 +124,140 @@ func (m *PodManage) SelectVictimPod(c *Config, ns string, kind string) (*v1.Pod,
 	//pods, err := clientset.CoreV1().Pods(c.Namespace[x].Name).List(metaV1.ListOptions{})
 
 	// query named deployment set via name provided
-	lo := metaV1.ListOptions{FieldSelector: "kind=" + kind}
+	//lo := metaV1.ListOptions{FieldSelector: "kind=" + kind}
+
+	var matchLabels map[string]string
+
+	switch kind {
+	case "deployment":
+		deploymentsClient := con.AppsV1().Deployments(ns)
+
+		deps, err := deploymentsClient.List(metav1.ListOptions{})
+		if errors.IsNotFound(err) {
+			log.Printf("Can not find %s in namespace %s, doing nothing", kind, ns)
+			return nil, false, err
+		} else if statusError, isStatus := err.(*errors.StatusError); isStatus {
+			fmt.Printf("Error getting %s in namespace %s: %v\n", kind, ns, statusError.ErrStatus.Message)
+			return nil, false, err
+		} else if err != nil {
+			fmt.Println(err)
+			return nil, false, err
+		}
+		fmt.Printf("There are %d %ss in the cluster\n", len(deps.Items), kind)
+		x := RandomInt(len(deps.Items))
+		dep := deps.Items[x]
+		fmt.Printf(" * %s (%d replicas)\n", dep.Name, *dep.Spec.Replicas)
+		log.Printf("%s %s in namespace %s has %d pods defined, %d available and %d unavailable ",
+			kind, dep.ObjectMeta.Name, ns, *dep.Spec.Replicas, dep.Status.AvailableReplicas, dep.Status.UnavailableReplicas)
+
+		if dep.ObjectMeta.Name == "rabbitmq" {
+			if (*dep.Spec.Replicas/2 + 1) >= dep.Status.AvailableReplicas {
+				log.Printf("available pods less than unavailable pods, doing nothing")
+				return nil, false, nil
+			}
+		} else {
+			if dep.Status.AvailableReplicas < 2 {
+				log.Printf("Only one pod available, doing nothing")
+				return nil, false, nil
+			}
+		}
+
+		matchLabels = dep.Spec.Selector.MatchLabels
+	case "statefulset":
+		statefulClient := con.AppsV1().StatefulSets(ns)
+		sss, err := statefulClient.List(metav1.ListOptions{})
+		if errors.IsNotFound(err) {
+			log.Printf("Can not find %s in namespace %s, doing nothing", kind, ns)
+			return nil, false, err
+		} else if statusError, isStatus := err.(*errors.StatusError); isStatus {
+			fmt.Printf("Error getting %s in namespace %s: %v\n", kind, ns, statusError.ErrStatus.Message)
+			return nil, false, err
+		} else if err != nil {
+			fmt.Println(err)
+			return nil, false, err
+		}
+		fmt.Printf("There are %d %ss in the cluster\n", len(sss.Items), kind)
+		x := RandomInt(len(sss.Items))
+		ss := sss.Items[x]
+		fmt.Printf(" * %s (%d replicas)\n", ss.Name, *ss.Spec.Replicas)
+		log.Printf("%s %s in namespace %s has %d pods defined, %d available ",
+			kind, ss.ObjectMeta.Name, ns, *ss.Spec.Replicas, ss.Status.ReadyReplicas)
+
+		if ss.ObjectMeta.Name == "mariadb" {
+			if (*ss.Spec.Replicas/2 + 1) >= ss.Status.ReadyReplicas {
+				log.Printf("available pods less than unavailable pods, doing nothing")
+				return nil, false, nil
+			}
+		} else {
+			if ss.Status.ReadyReplicas < 2 {
+				log.Printf("Only one pod available, doing nothing")
+				return nil, false, nil
+			}
+		}
+
+		matchLabels = ss.Spec.Selector.MatchLabels
+	case "daemonset":
+		daemonsetClient := con.AppsV1().Deployments(ns)
+
+		dss, err := daemonsetClient.List(metav1.ListOptions{})
+		if errors.IsNotFound(err) {
+			log.Printf("Can not find %s in namespace %s, doing nothing", kind, ns)
+			return nil, false, err
+		} else if statusError, isStatus := err.(*errors.StatusError); isStatus {
+			fmt.Printf("Error getting %s in namespace %s: %v\n", kind, ns, statusError.ErrStatus.Message)
+			return nil, false, err
+		} else if err != nil {
+			fmt.Println(err)
+			return nil, false, err
+		}
+		fmt.Printf("There are %d %ss in the cluster\n", len(dss.Items), kind)
+		x := RandomInt(len(dss.Items))
+		ds := dss.Items[x]
+		fmt.Printf(" * %s (%d replicas)\n", ds.Name, *ds.Spec.Replicas)
+		log.Printf("%s %s in namespace %s has %d pods defined, %d available and %d unavailable ",
+			kind, ds.ObjectMeta.Name, ns, *ds.Spec.Replicas, ds.Status.AvailableReplicas, ds.Status.UnavailableReplicas)
+
+		if ds.Status.AvailableReplicas < 2 {
+			log.Printf("Only one pod available, doing nothing")
+			return nil, false, nil
+		}
+
+		matchLabels = ds.Spec.Selector.MatchLabels
+	}
+
+	s := ""
+	count := 0
+	for k, v := range matchLabels {
+		count += 1
+		s = s + k + "=" + v
+		if count < len(matchLabels) {
+			s = s + ","
+		}
+	}
+	lo := metav1.ListOptions{
+		FieldSelector: "status.phase=Running",
+		LabelSelector: s,
+	}
 
 	pods, err := con.CoreV1().Pods(ns).List(lo)
 	if err != nil {
-		log.Println(err)
+		fmt.Println(err)
 		return nil, false, err
-	} else if len(pods.Items) > 0 {
-		found = true
-		item := randomInt(len(pods.Items))
-		pod = pods.Items[item]
-		log.Printf("Found %s %s in namespace %s\n", kind, pod.Name, ns)
-	} else {
-		log.Printf("Can not find %s %s in namespace %s, doing nothing", kind, pod.Name, ns)
 	}
+	x := RandomInt(len(pods.Items))
+	pod := pods.Items[x]
 
-	return &pod, found, nil
+	return &pod, true, nil
 }
 
-func killPod(pod *v1.Pod, ns string, kind string) error {
-	con, err := connect()
+func killPod(pod *v1.Pod, ns string) error {
+	con, err := Connect()
 	if err != nil {
 		log.Println(err)
 		return err
 	}
 
-	err = con.CoreV1().Pods(ns).Delete(pod.Name, &metaV1.DeleteOptions{})
+	err = con.CoreV1().Pods(ns).Delete(pod.Name, &metav1.DeleteOptions{})
 	if err != nil {
 		log.Println(err)
 		return err
@@ -138,4 +265,11 @@ func killPod(pod *v1.Pod, ns string, kind string) error {
 	log.Printf("Eating pod %s NOM NOM NOM!!!!", pod.Name)
 
 	return nil
+}
+
+func homeDir() string {
+	if h := os.Getenv("HOME"); h != "" {
+		return h
+	}
+	return os.Getenv("USERPROFILE") // windows
 }

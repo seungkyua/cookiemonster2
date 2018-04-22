@@ -35,8 +35,8 @@ func (h PodHandler) List(c echo.Context) error {
 // Start a job to delete random pod
 func (h PodHandler) Start(c echo.Context) error {
 	if m.Started {
-		log.Println("Pods is already being munched, ignoring request\n")
-		return c.String(http.StatusOK, "Pods is already being munched, ignoring request\n")
+		log.Println("Pod is already being munched, ignoring request\n")
+		return c.String(http.StatusOK, "Pod is already being munched, ignoring request\n")
 	} else {
 		ctx, cancel := context.WithCancel(context.Background())
 		m.Ctx = ctx
@@ -56,8 +56,8 @@ func (h PodHandler) Start(c echo.Context) error {
 
 func (h PodHandler) Stop(c echo.Context) error {
 	if !m.Started {
-		log.Println("Cookie Monster is currently munching, ignoring request\n")
-		return c.String(http.StatusOK, "Cookie Monster is currently munching, ignoring request\n")
+		log.Println("Pod is not currently getting munched, ignoring request\n")
+		return c.String(http.StatusOK, "Pod is not currently getting munched, ignoring request\n")
 	}
 
 	m.Stop(domain.GetConfig())

@@ -47,9 +47,8 @@ func (h PodHandler) Start(c echo.Context) error {
 	err := m.Start(domain.GetConfig())
 	if err != nil {
 		log.Println(err)
-		if m.Started {
-			m.Stop(domain.GetConfig())
-		}
+		m.Started = false
+		return c.String(http.StatusOK, "Cookie Monster Start Error !!! \n")
 	}
 
 	return c.String(http.StatusOK, "Cookie Monster Start!!! \n")

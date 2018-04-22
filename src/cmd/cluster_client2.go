@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/seungkyua/cookiemonster2/src/domain"
+	"log"
 )
 
 func main() {
@@ -18,7 +19,8 @@ func main() {
 		Started: false,
 	}
 
-	ticker := time.NewTicker(time.Second * time.Duration(config.Namespace[0].Resource[0].Interval))
+	startTime := time.Now().Add(time.Duration(config.Duration) * time.Second)
+	ticker := time.NewTicker(time.Second * time.Duration(config.Interval))
 
 	err = pm.MainLoop(config)
 	if err != nil {
@@ -26,6 +28,10 @@ func main() {
 	}
 
 	for range ticker.C {
+		if startTime.Before(time.Now()) {
+			log.Println("Duration time out !!!")
+			return
+		}
 		err = pm.MainLoop(config)
 		if err != nil {
 			panic(err.Error())

@@ -11,9 +11,6 @@ type Resource struct {
 	Kind     string
 	Name     string
 	Target   int64
-	Interval int64
-	Duration int64
-	Slack    bool
 }
 
 type Namespace struct {
@@ -23,6 +20,9 @@ type Namespace struct {
 
 type Config struct {
 	Namespace []Namespace
+	Interval int64
+	Duration int64
+	Slack    bool
 }
 
 var config *Config

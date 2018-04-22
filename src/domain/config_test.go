@@ -17,27 +17,18 @@ namespace:
     - kind: deployment
       name: rabbitmq
       target: 1
-      interval: 60
-      duration: 600
-      slack: true
     - kind: deployment
       name:
       target: 1
-      interval: 60
-      duration: 600
-      slack: true
     - kind: daemonset
       name:
       target: 1
-      interval: 60
-      duration: 600
-      slack: true
     - kind: statefulset
-      name: mariadb
+      name:
       target: 1
-      interval: 60
-      duration: 600
-      slack: true
+interval: 60
+duration: 600
+slack: true
 
 `)
 )

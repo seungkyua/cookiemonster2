@@ -11,7 +11,6 @@ import (
 
 	"golang.org/x/net/context"
 	"k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -58,7 +57,6 @@ func Connect() (*kubernetes.Clientset, error) {
 			return nil, err
 		}
 
-		// create the clientset
 		clientset, err := kubernetes.NewForConfig(config)
 		if err != nil {
 			panic(err.Error())
@@ -69,38 +67,53 @@ func Connect() (*kubernetes.Clientset, error) {
 }
 
 func (m *PodManage) Start(c *Config) error {
-	log.Printf("Cookie Time!!! Random feast starting")
+	log.Println("Cookie Time!!! Random feast starting")
 
 	err := m.MainLoop(c)
 	if err != nil {
 		return err
 	}
 
-	tick := time.Tick(time.Duration(c.Namespace[0].Resource[0].Interval) * time.Second)
-	for {
-		select {
-		case <-m.Ctx.Done():
-			return nil
-		case <-tick:
-			err := m.MainLoop(c)
-			if err != nil {
-				return err
+	timeout := time.After(time.Duration(c.Duration) * time.Second)
+	startTime := time.Now().Add(time.Duration(config.Duration) * time.Second)
+
+	go func() {
+		tick := time.Tick(time.Duration(c.Interval) * time.Second)
+		for {
+
+			select {
+			case <-timeout:
+				log.Println("Request Timeout !!!")
+				return
+			case <-m.Ctx.Done():
+				return
+			case <-tick:
+				if startTime.Before(time.Now()) {
+					m.Stop(c)
+				} else {
+					err := m.MainLoop(c)
+					if err != nil {
+						return
+					}
+				}
 			}
 		}
-	}
+	}()
 
 	return nil
 }
 
 func (m *PodManage) MainLoop(c *Config) error {
-
 	for _, ns := range c.Namespace {
 		for _, res := range ns.Resource {
-			pod, startKill, err := m.SelectVictimPod(c, ns.Name, res.Kind)
-			if err != nil {
-				return err
-			} else if startKill {
-				go killPod(pod, ns.Name)
+			for nu := 0; nu < int(res.Target); nu++ {
+				pod, startKill, err := m.SelectVictimPod(c, ns.Name, res.Kind, res.Name)
+				if err != nil {
+					log.Println(err)
+					return err
+				} else if startKill {
+					go killPod(pod, ns.Name)
+				}
 			}
 		}
 	}
@@ -112,7 +125,7 @@ func (m *PodManage) Stop(c *Config) {
 	m.Started = false
 }
 
-func (m *PodManage) SelectVictimPod(c *Config, ns string, kind string) (*v1.Pod, bool, error) {
+func (m *PodManage) SelectVictimPod(c *Config, ns string, kind string, name string) (*v1.Pod, bool, error) {
 	con, err := Connect()
 	if err != nil {
 		log.Println(err)
@@ -128,22 +141,28 @@ func (m *PodManage) SelectVictimPod(c *Config, ns string, kind string) (*v1.Pod,
 
 	var matchLabels map[string]string
 
+	var lo metav1.ListOptions
+	if name == "" {
+		lo = metav1.ListOptions{}
+	} else {
+		lo = metav1.ListOptions{
+			FieldSelector: "metadata.name=" + name,
+		}
+	}
+
 	switch kind {
 	case "deployment":
 		deploymentsClient := con.AppsV1().Deployments(ns)
 
-		deps, err := deploymentsClient.List(metav1.ListOptions{})
-		if errors.IsNotFound(err) {
-			log.Printf("Can not find %s in namespace %s, doing nothing", kind, ns)
-			return nil, false, err
-		} else if statusError, isStatus := err.(*errors.StatusError); isStatus {
-			fmt.Printf("Error getting %s in namespace %s: %v\n", kind, ns, statusError.ErrStatus.Message)
-			return nil, false, err
-		} else if err != nil {
+		deps, err := deploymentsClient.List(lo)
+		if err != nil {
 			fmt.Println(err)
 			return nil, false, err
+		} else if len(deps.Items) < 1 {
+			log.Printf("Can not find %s in namespace %s, doing nothing", kind, ns)
+			return nil, false, err
 		}
-		fmt.Printf("There are %d %ss in the cluster\n", len(deps.Items), kind)
+
 		x := RandomInt(len(deps.Items))
 		dep := deps.Items[x]
 		fmt.Printf(" * %s (%d replicas)\n", dep.Name, *dep.Spec.Replicas)
@@ -165,18 +184,15 @@ func (m *PodManage) SelectVictimPod(c *Config, ns string, kind string) (*v1.Pod,
 		matchLabels = dep.Spec.Selector.MatchLabels
 	case "statefulset":
 		statefulClient := con.AppsV1().StatefulSets(ns)
-		sss, err := statefulClient.List(metav1.ListOptions{})
-		if errors.IsNotFound(err) {
-			log.Printf("Can not find %s in namespace %s, doing nothing", kind, ns)
-			return nil, false, err
-		} else if statusError, isStatus := err.(*errors.StatusError); isStatus {
-			fmt.Printf("Error getting %s in namespace %s: %v\n", kind, ns, statusError.ErrStatus.Message)
-			return nil, false, err
-		} else if err != nil {
+		sss, err := statefulClient.List(lo)
+		if err != nil {
 			fmt.Println(err)
 			return nil, false, err
+		} else if len(sss.Items) < 1 {
+			log.Printf("Can not find %s in namespace %s, doing nothing", kind, ns)
+			return nil, false, err
 		}
-		fmt.Printf("There are %d %ss in the cluster\n", len(sss.Items), kind)
+
 		x := RandomInt(len(sss.Items))
 		ss := sss.Items[x]
 		fmt.Printf(" * %s (%d replicas)\n", ss.Name, *ss.Spec.Replicas)
@@ -199,18 +215,15 @@ func (m *PodManage) SelectVictimPod(c *Config, ns string, kind string) (*v1.Pod,
 	case "daemonset":
 		daemonsetClient := con.AppsV1().Deployments(ns)
 
-		dss, err := daemonsetClient.List(metav1.ListOptions{})
-		if errors.IsNotFound(err) {
-			log.Printf("Can not find %s in namespace %s, doing nothing", kind, ns)
-			return nil, false, err
-		} else if statusError, isStatus := err.(*errors.StatusError); isStatus {
-			fmt.Printf("Error getting %s in namespace %s: %v\n", kind, ns, statusError.ErrStatus.Message)
-			return nil, false, err
-		} else if err != nil {
+		dss, err := daemonsetClient.List(lo)
+		if err != nil {
 			fmt.Println(err)
 			return nil, false, err
+		} else if len(dss.Items) < 1 {
+			log.Printf("Can not find %s in namespace %s, doing nothing", kind, ns)
+			return nil, false, err
 		}
-		fmt.Printf("There are %d %ss in the cluster\n", len(dss.Items), kind)
+
 		x := RandomInt(len(dss.Items))
 		ds := dss.Items[x]
 		fmt.Printf(" * %s (%d replicas)\n", ds.Name, *ds.Spec.Replicas)
@@ -234,7 +247,7 @@ func (m *PodManage) SelectVictimPod(c *Config, ns string, kind string) (*v1.Pod,
 			s = s + ","
 		}
 	}
-	lo := metav1.ListOptions{
+	lo = metav1.ListOptions{
 		FieldSelector: "status.phase=Running",
 		LabelSelector: s,
 	}

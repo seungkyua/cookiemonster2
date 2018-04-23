@@ -1,6 +1,6 @@
 FROM golang:latest
 
-MAINTAINER Open System Lab
+MAINTAINER Seungkyu Ahn (seungkyua@gmail.com)
 
 RUN mkdir /app
 ADD config /app/config

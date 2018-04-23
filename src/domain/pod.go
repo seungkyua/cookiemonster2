@@ -111,6 +111,8 @@ func (m *PodManage) MainLoop(c *Config) error {
 }
 
 func (m *PodManage) Stop(c *Config) {
+	log.Println("Stop snacking.\n")
+
 	defer m.Cancel()
 	m.Started = false
 }

@@ -61,7 +61,6 @@ func (h PodHandler) Stop(c echo.Context) error {
 	}
 
 	m.Stop(domain.GetConfig())
-	log.Println("Stop snacking.\n")
 
 	return c.String(http.StatusOK, "Cookie Monster Stop!!! \n")
 }

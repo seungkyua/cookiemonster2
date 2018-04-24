@@ -18,3 +18,4 @@
 bin/
 vendor/
 glide.yaml
+glide.lock

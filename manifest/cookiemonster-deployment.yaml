@@ -6,6 +6,9 @@ metadata:
   namespace: cookiemonster
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: cookiemonster
   template:
     metadata:
       labels:
@@ -22,6 +25,6 @@ spec:
         - name: config
           mountPath: /app/config
       volumes:
-        - name: config
-          configMap:
-            name: cookiemonster-cm-config
+      - name: config
+        configMap:
+          name: cookiemonster-cm-config

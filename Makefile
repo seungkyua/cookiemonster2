@@ -22,7 +22,7 @@ clean:
 	rm -rf ./bin ./vendor
 
 docker:
-	docker build --no-cache -t cookiemonster -f Dockerfile.cookiemonster .
+	docker build --no-cache -t seungkyua/cookiemonster -f Dockerfile.cookiemonster .
 
 vendor:
 	govendor get github.com/seungkyua/cookiemonster2

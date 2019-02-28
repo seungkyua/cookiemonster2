@@ -6,7 +6,7 @@ RUN mkdir /app
 ADD config /app/config
 WORKDIR /app
 
-COPY bin/cookiemonster-linux-amd64 /app/cookiemonster
+COPY bin/cookiemonster* /app/cookiemonster
 
 EXPOSE 8080
 

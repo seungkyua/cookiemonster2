@@ -16,5 +16,6 @@
 # Project metadata in JetBrain IDE
 .idea/
 bin/
+vendor/
 glide.yaml
 glide.lock

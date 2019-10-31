@@ -28,7 +28,7 @@ type Config struct {
 var config *Config
 
 func init() {
-	path := "config"
+	path := "../config"
 	config = &Config{}
 	if err := config.ReadConfig(path); err != nil {
 		log.Println(err)

@@ -36,6 +36,7 @@ func (h PodHandler) List(c echo.Context) error {
 	case false:
 		return c.String(http.StatusOK, "PodManager is not running")
 	}
+	return nil
 }
 
 // Start a job to delete random pod

@@ -1,8 +1,6 @@
 # cookiemonster2
 
-brew install glide
-glide create
-
+// we try to use go mod 
 make clean
 make build-linux
 make docker

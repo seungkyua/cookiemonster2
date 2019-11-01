@@ -24,5 +24,3 @@ clean:
 docker:
 	docker build --no-cache -t seungkyua/cookiemonster -f Dockerfile.cookiemonster .
 
-vendor:
-	govendor get github.com/seungkyua/cookiemonster2

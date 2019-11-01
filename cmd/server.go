@@ -15,5 +15,5 @@ func main() {
 	handler.PodHandler{}.SetHandler(e.Group("/api/v1/pod"))
 	handler.ConfigHandler{}.SetHandler(e.Group("/api/v1/config"))
 
-	e.Logger.Debug(e.Start(":8080"))
+	e.Logger.Fatal(e.Start(":10080"))
 }

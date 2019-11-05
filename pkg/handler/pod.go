@@ -29,7 +29,7 @@ func (h PodHandler) SetHandler(group *echo.Group) {
 
 // List running pods
 func (h PodHandler) List(c echo.Context) error {
-	SendSlackMessage("Get PodManager status")
+	domain.SendSlackMessage("Get PodManager status")
 	switch m.Started {
 	case true:
 		return c.String(http.StatusOK, "PodManager is running")

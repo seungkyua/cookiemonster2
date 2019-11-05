@@ -16,3 +16,4 @@ namespace:
 interval: 60
 duration: 600
 slack: true
+change: true

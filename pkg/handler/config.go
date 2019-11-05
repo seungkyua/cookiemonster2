@@ -5,9 +5,9 @@ import (
 	"math/rand"
 	"net/http"
 	"time"
-
 	"github.com/labstack/echo"
 	"github.com/seungkyua/cookiemonster2/pkg/domain"
+
 )
 
 type ConfigHandler struct{}
@@ -21,7 +21,6 @@ func (h ConfigHandler) SetHandler(group *echo.Group) {
 
 // Get a config
 func (h ConfigHandler) Get(context echo.Context) error {
-	SendSlackMessage("Reset cookiemonster config")
 	log.Println("###########", randomInt(1))
 	return context.JSONPretty(http.StatusOK, domain.GetConfig(), "    ")
 }

@@ -68,8 +68,9 @@ func Connect() (*kubernetes.Clientset, error) {
 
 func (m *PodManage) Start(c *Config) error {
 	log.Println("Cookie Time!!! Random feast starting")
-	if SlackON(){
-		SendSlackMessage("Cookiemonster is starting")}
+	if SlackON() {
+		SendSlackMessage("Cookiemonster is starting")
+	}
 	err := m.MainLoop(c)
 	if err != nil {
 		return err
@@ -115,7 +116,8 @@ func (m *PodManage) MainLoop(c *Config) error {
 func (m *PodManage) Stop(c *Config) {
 	log.Println("Stop snacking.\n")
 	if SlackON() {
-		SendSlackMessage("Cookiemonster is stop") }
+		SendSlackMessage("Cookiemonster is stop")
+	}
 	defer m.Cancel()
 	m.Started = false
 }

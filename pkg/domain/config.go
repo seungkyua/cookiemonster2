@@ -24,6 +24,7 @@ type Config struct {
 	Duration  int64
 	Slack     bool
 	Change    bool
+	Bmcad 	string
 }
 
 var config *Config

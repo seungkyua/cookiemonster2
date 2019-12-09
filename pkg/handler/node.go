@@ -11,9 +11,15 @@ type NodeHandler struct{}
 
 func (n NodeHandler) SetHandler(group *echo.Group) {
 	group.GET("", n.List)
+	group.POST("/start", n.NodeStart)
 }
 
 func (n NodeHandler) List(context echo.Context) error {
 	log.Println("###########", randomInt(1))
 	return context.JSONPretty(http.StatusOK, domain.Returnnamelist(), "    ")
+}
+
+func (n NodeHandler) NodeStart(context echo.Context) error {
+	log.Println("###########", randomInt(1))
+	return context.JSONPretty(http.StatusOK, domain.Reboot(), "    ")
 }

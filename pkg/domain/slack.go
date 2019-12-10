@@ -9,15 +9,24 @@ import (
 	"time"
 )
 
+
+var c *Config
 //this url can be changed into specific webhook address
-const webhookUrl string = "https://hooks.slack.com/services/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"
+func init() {
+	path := "config"
+	c = &Config{}
+	if err := c.ReadConfig(path); err != nil {
+		log.Println(err)
+	}
+}
 
 type SlackRequestBody struct {
 	Text string `json:"text"`
 }
 
 func SendSlackMessage(msg string) {
-	err := SendSlackNotification(webhookUrl, msg)
+	c.ResetConfig()
+	err := SendSlackNotification(c.Slackwebhook, msg)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -26,7 +35,6 @@ func SendSlackMessage(msg string) {
 // SendSlackNotification will post to an 'Incoming Webook' url setup in Slack Apps. It accepts
 // some text and the slack channel is saved within Slack.
 func SendSlackNotification(webhookUrl string, msg string) error {
-
 	slackBody, _ := json.Marshal(SlackRequestBody{Text: msg})
 	req, err := http.NewRequest(http.MethodPost, webhookUrl, bytes.NewBuffer(slackBody))
 	if err != nil {

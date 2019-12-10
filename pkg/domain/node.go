@@ -7,6 +7,7 @@ import (
 	gofish "github.com/stmcginnis/gofish"
 	redfish "github.com/stmcginnis/gofish/redfish"
 	"time"
+	"context"
 )
 
 type Namelist struct {
@@ -46,8 +47,8 @@ func NodeList(ls *Namelist) error {
 
 func Reboot() string {
 	path := "../config"
-	config = &Config{}
-	if err := config.ReadConfig(path); err != nil {
+	c = &Config{}
+	if err := c.ReadConfig(path); err != nil {
 		log.Println(err)
 		return "Fail to restart node"
 	}
@@ -81,6 +82,8 @@ func Reboot() string {
 		BootSourceOverrideTarget:  redfish.PxeBootSourceOverrideTarget,
 		BootSourceOverrideEnabled: redfish.OnceBootSourceOverrideEnabled,
 	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	go func(){
 		for _, system := range ss {
 			fmt.Printf("System: %#v\n\n", system)
@@ -93,6 +96,10 @@ func Reboot() string {
 				panic(err)
 			}
 			time.Sleep(1000)
+			select {
+			case <-ctx.Done():
+				return
+			}
 		}
 	}()
 	return "Successfully restart node"

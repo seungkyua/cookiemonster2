@@ -23,6 +23,7 @@ type Config struct {
 	Interval  int64
 	Duration  int64
 	Slack     bool
+	Slackwebhook string
 	Change    bool
 	Bmcad 	string
 }
@@ -31,7 +32,7 @@ var config *Config
 var path string
 
 func init() {
-	path := "../config"
+	path := "config"
 	config = &Config{}
 	if err := config.ReadConfig(path); err != nil {
 		log.Println(err)

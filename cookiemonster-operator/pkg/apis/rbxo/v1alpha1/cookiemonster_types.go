@@ -10,34 +10,30 @@ import (
 // CookiemonsterSpec defines the desired state of Cookiemonster
 // +k8s:openapi-gen=true
 type Resource struct {
-	Kind   string
-	Name   string
-	Target int64
+	Kind   string `json:"kind"`
+	Name   string `json:"name"`
+	Target int64 `json:"target"`
 }
 
 type Namespace struct {
-	Name     string
-	Resource []Resource
+	Name     string `json:"name"`
+	Resource []Resource `json:"resource"`
 }
 
-type Config struct {
-	Namespace []Namespace
-	Interval  int64
-	Duration  int64
-	Slack     bool
-	Slackwebhook string
-	Change    bool
-	Bmcad 	string
-}
-
-type CookiemonsterSpec struct {
+type Data struct{
+	Namespace []Namespace `json:"namespace"`
 	Size int32 `json:"size"`
 	Interval int32 `json:"interval"`
 	Duration int64 `json:"duration"`
 	Slack 	bool `json:"slack"`
-	Slackwebhook string `json"slackwebhook"`
+	Slackwebhook string `json:"slackwebhook"`
 	Change bool `json:"change"`
 	Bmcad string `json:"bmcad"`
+
+	}
+type CookiemonsterSpec struct {
+	Size int32 `json:"size"`
+	Data Data `json:"data"`
 
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file

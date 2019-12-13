@@ -19,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	yaml "gopkg.in/yaml.v2"
 )
 
 var log = logf.Log.WithName("controller_cookiemonster")
@@ -104,13 +105,46 @@ func (r *ReconcileCookiemonster) Reconcile(request reconcile.Request) (reconcile
 	//
 
 	// configmap create
-	
+	found_config:=&corev1.ConfigMap{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "cookiemonster-cm-config",Namespace:instance.Namespace}, found_config)
+	if err!= nil && errors.IsNotFound(err){
+		conm:= r.configForCookiemonster(instance)
+		reqLogger.Info("Creating a new configmap", "Configmap.Namespace", conm.Namespace, "Configmap.Name",conm.Name)
+		err = r.client.Create(context.TODO(), conm)
+		if err != nil {
+			reqLogger.Error(err, "Failed to create new configmap", "Configmap.Namespace", conm.Namespace, "Configmap.Name", conm.Name)
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{Requeue: true}, nil
+	} else if err != nil {
+		reqLogger.Error(err, "Failed to create configmap")
+		return reconcile.Result{}, err
+	}
 	//
-	// Deployment
+
+	// configmap update
+	instancespec, err := yaml.Marshal(instance.Spec.Data)
+	if err != nil {
+		reqLogger.Error(err, "Failed to get exist configmap option", "Configmap.Namespace", instance.Namespace, "Configmap.Name", instance.Name)
+		return reconcile.Result{}, err
+	}
+	stringspec:= string(instancespec)
+	if !reflect.DeepEqual(found_config.Data["config.yaml"],stringspec){
+		found_config.Data["config.yaml"] = stringspec
+		reqLogger.Info("Change new option in cookiemonster deployment", "Deployment.Namespace", found_config.Namespace, "Deployment.Name", found_config.Name)
+		err = r.client.Update(context.TODO(), found_config)
+		if err != nil {
+			reqLogger.Error(err, "Failed to change configmap", "confimap.Namespace", found_config.Namespace, "Deployment.Name", found_config.Name)
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{Requeue: true}, nil
+	}
+	//
+
+	// Deployment create
 	found := &appsv1.Deployment{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) { // 만약에 Memcached를 위한 Deployment가 없다면
-		// 새로운 Deployment를 생성합니다. deploymentForMemcached 함수는 Deployment를 위한 spec을 반환합니다.
+	if err != nil && errors.IsNotFound(err) {
 		dep := r.deploymentForCookiemonster(instance)
 		reqLogger.Info("Creating a new Deployment", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
 		err = r.client.Create(context.TODO(), dep)
@@ -118,16 +152,14 @@ func (r *ReconcileCookiemonster) Reconcile(request reconcile.Request) (reconcile
 			reqLogger.Error(err, "Failed to create new Deployment", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
 			return reconcile.Result{}, err
 		}
-		// Deployment가 성공적으로 생성되었다면, 이 이벤트를 다시 Requeue 합니다.
 		return reconcile.Result{Requeue: true}, nil
 	} else if err != nil {
 		reqLogger.Error(err, "Failed to get Deployment")
 		return reconcile.Result{}, err
 	}
+	//
 
-	// Requeue된 이벤트는  (Deployment가 이미 생성되어 있기 때문에 위의 if문을 그냥 지나칠테고, 아래의 소스코드를 실행합니다.
-	// 배포된 deployment의 spec이 요구되는 spec과 다른 경우 update를 실시한다.
-	// 근데 애 딥이퀄이 안먹을것 같다.
+	//configmap update
 	if !reflect.DeepEqual(found, r.deploymentForCookiemonster(instance)){
 		found = r.deploymentForCookiemonster(instance)
 		reqLogger.Info("Change new option in cookiemonster deployment", "Deployment.Namespace", found.Namespace, "Deployment.Name", found.Name)
@@ -140,32 +172,58 @@ func (r *ReconcileCookiemonster) Reconcile(request reconcile.Request) (reconcile
 	}
 	//
 
-	// Memcached의 Status를 각 파드의 이름으로 업데이트합니다.
-	// kubectl describe memcached를 해보면 Status 항목이 정의되어 있을 것입니다.
+	// cr의 pod describe section
 	podList := &corev1.PodList{}
 	labelSelector := labels.SelectorFromSet(labelsForCookiemonster(instance.Name))
-	listOps := &client.ListOptions{Namespace: instance.Namespace, LabelSelector: labelSelector}
-	err = r.client.List(context.TODO(), listOps, podList)
+	listops := &client.ListOptions{Namespace: instance.Namespace, LabelSelector: labelSelector}
+	err = r.client.List(context.TODO(), listops, podList)
 	if err != nil {
-		reqLogger.Error(err, "Failed to list pods", "Memcached.Namespace", instance.Namespace, "Memcached.Name", instance.Name)
+		reqLogger.Error(err, "Failed to list pods", "Cookiemonster.Namespace", instance.Namespace, "Cookiemonster.Name", instance.Name)
 		return reconcile.Result{}, err
 	}
 	podNames := getPodNames(podList.Items)
-
-	// Update status.Nodes if needed
 	if !reflect.DeepEqual(podNames, instance.Status.Nodes) {
 		instance.Status.Nodes = podNames
 		err := r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
-			reqLogger.Error(err, "Failed to update Memcached status")
+			reqLogger.Error(err, "Failed to update Cookiemonster status(pod)")
 			return reconcile.Result{}, err
 		}
 	}
+
+	// cr의 configmap decsribe section
+	configmaplist := &corev1.ConfigMapList{}
+	labelSelector2 := labels.SelectorFromSet(labelsForCookiemonster(instance.Name))
+	listops2 := &client.ListOptions{Namespace: instance.Namespace, LabelSelector: labelSelector2}
+	err = r.client.List(context.TODO(), listops2, podList)
+	if err != nil {
+		reqLogger.Error(err, "Failed to list configmap", "Cookiemonster.Namespace", instance.Namespace, "Cookiemonster.Name", instance.Name)
+		return reconcile.Result{}, err
+	}
+	configNames := getConfigmapNames(configmaplist.Items)
+	if !reflect.DeepEqual(configNames, instance.Status.Maps) {
+		instance.Status.Maps = configNames
+		err := r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update Cookiemonster status(configmap)")
+			return reconcile.Result{}, err
+		}
+	}
+	//
 
 	return reconcile.Result{}, nil
 	// STATUS MAP UPDATE
 
 }
+
+func getConfigmapNames(configmaps []corev1.ConfigMap) []string {
+	var configNames []string
+	for _, configmap := range configmaps {
+		configNames = append(configNames, configmap.Name)
+	}
+	return configNames
+}
+
 func getPodNames(pods []corev1.Pod) []string {
 	var podNames []string
 	for _, pod := range pods {
@@ -230,7 +288,25 @@ func (r *ReconcileCookiemonster) deploymentForCookiemonster(m *rbxov1alpha1.Cook
 			},
 		},
 	}
-	// Set Memcached instance as the owner and controller
+
 	controllerutil.SetControllerReference(m, dep, r.scheme)
 	return dep
+}
+
+func (r *ReconcileCookiemonster) configForCookiemonster(m *rbxov1alpha1.Cookiemonster) *corev1.ConfigMap {
+	ls := labelsForCookiemonster(m.Name)
+	specfile, _ := yaml.Marshal(&m.Spec.Data)
+	configmap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      m.Name,
+			Namespace: m.Namespace,
+			Labels: ls,
+		},
+		Data: map[string]string{
+				"config.yaml": string(specfile),
+		},
+	}
+	// Set Memcached instance as the owner and controller
+	controllerutil.SetControllerReference(m, configmap, r.scheme)
+	return configmap
 }

@@ -7,7 +7,7 @@
  * Now I develop operator feature
  * Helm chart will be developed
 
-##For install
+## For install
 ```sh 
 go mod vendor  
 make clean  
@@ -15,27 +15,27 @@ make build-linux
 make docker 
 ```
 
-##Docker hub update 
+## Docker hub update 
 ```sh
 docker tag cookiemonster seungkyua/cookiemonster  
 docker push seungkyua/cookiemonster  
 ```
 
-##Start in local environment  
+## Start in local environment  
 ```sh
 go run server.go  
 curl -X POST http://localhost:10080/api/v1/pod/start  
 curl -X POST http://localhost:10080/api/v1/pod/stop  
 ```
 
-##Start in k8s cluster
+## Start in k8s cluster
 ```sh
 cd cookiemonster-operator && kubectl apply -f deploy
 cd deploy && kubectl apply -f crds
 curl -X POST http://localhost:${server_port_num}/api/v1/pod/start
 curl -X POST http://localhost:${server_port_num}/api/v1/pod/stop
 ```
-##Restart nodes
+## Restart nodes
 ```sh
 modify bmc value in cr file in crd folder 
 curl -X POST http://localhost:${server_port_num}/api/v1/node/start

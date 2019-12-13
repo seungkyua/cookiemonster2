@@ -2,7 +2,9 @@ package cookiemonster
 
 import (
 	"context"
-
+	"k8s.io/apimachinery/pkg/labels"
+	"reflect"
+	appsv1 "k8s.io/api/apps/v1"
 	rbxov1alpha1 "github.com/rbxorkt12/coockiemonster2/pkg/apis/rbxo/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -86,7 +88,7 @@ func (r *ReconcileCookiemonster) Reconcile(request reconcile.Request) (reconcile
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Cookiemonster")
 
-	// Fetch the Cookiemonster instance
+	// Cookiemonster instance
 	instance := &rbxov1alpha1.Cookiemonster{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
@@ -99,55 +101,136 @@ func (r *ReconcileCookiemonster) Reconcile(request reconcile.Request) (reconcile
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
+	//
 
-	// Define a new Pod object
-	pod := newPodForCR(instance)
-
-	// Set Cookiemonster instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	// Check if this Pod already exists
-	found := &corev1.Pod{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-		err = r.client.Create(context.TODO(), pod)
+	// configmap create
+	
+	//
+	// Deployment
+	found := &appsv1.Deployment{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, found)
+	if err != nil && errors.IsNotFound(err) { // 만약에 Memcached를 위한 Deployment가 없다면
+		// 새로운 Deployment를 생성합니다. deploymentForMemcached 함수는 Deployment를 위한 spec을 반환합니다.
+		dep := r.deploymentForCookiemonster(instance)
+		reqLogger.Info("Creating a new Deployment", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
+		err = r.client.Create(context.TODO(), dep)
 		if err != nil {
+			reqLogger.Error(err, "Failed to create new Deployment", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
 			return reconcile.Result{}, err
 		}
-
-		// Pod created successfully - don't requeue
-		return reconcile.Result{}, nil
+		// Deployment가 성공적으로 생성되었다면, 이 이벤트를 다시 Requeue 합니다.
+		return reconcile.Result{Requeue: true}, nil
 	} else if err != nil {
+		reqLogger.Error(err, "Failed to get Deployment")
 		return reconcile.Result{}, err
 	}
 
-	// Pod already exists - don't requeue
-	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
+	// Requeue된 이벤트는  (Deployment가 이미 생성되어 있기 때문에 위의 if문을 그냥 지나칠테고, 아래의 소스코드를 실행합니다.
+	// 배포된 deployment의 spec이 요구되는 spec과 다른 경우 update를 실시한다.
+	// 근데 애 딥이퀄이 안먹을것 같다.
+	if !reflect.DeepEqual(found, r.deploymentForCookiemonster(instance)){
+		found = r.deploymentForCookiemonster(instance)
+		reqLogger.Info("Change new option in cookiemonster deployment", "Deployment.Namespace", found.Namespace, "Deployment.Name", found.Name)
+		err = r.client.Update(context.TODO(), found)
+		if err != nil {
+			reqLogger.Error(err, "Failed to change Deployment", "Deployment.Namespace", found.Namespace, "Deployment.Name", found.Name)
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{Requeue: true}, nil
+	}
+	//
+
+	// Memcached의 Status를 각 파드의 이름으로 업데이트합니다.
+	// kubectl describe memcached를 해보면 Status 항목이 정의되어 있을 것입니다.
+	podList := &corev1.PodList{}
+	labelSelector := labels.SelectorFromSet(labelsForCookiemonster(instance.Name))
+	listOps := &client.ListOptions{Namespace: instance.Namespace, LabelSelector: labelSelector}
+	err = r.client.List(context.TODO(), listOps, podList)
+	if err != nil {
+		reqLogger.Error(err, "Failed to list pods", "Memcached.Namespace", instance.Namespace, "Memcached.Name", instance.Name)
+		return reconcile.Result{}, err
+	}
+	podNames := getPodNames(podList.Items)
+
+	// Update status.Nodes if needed
+	if !reflect.DeepEqual(podNames, instance.Status.Nodes) {
+		instance.Status.Nodes = podNames
+		err := r.client.Status().Update(context.TODO(), instance)
+		if err != nil {
+			reqLogger.Error(err, "Failed to update Memcached status")
+			return reconcile.Result{}, err
+		}
+	}
+
 	return reconcile.Result{}, nil
+	// STATUS MAP UPDATE
+
+}
+func getPodNames(pods []corev1.Pod) []string {
+	var podNames []string
+	for _, pod := range pods {
+		podNames = append(podNames, pod.Name)
+	}
+	return podNames
+}
+func labelsForCookiemonster(name string) map[string]string {
+	return map[string]string{"app": "cookiemonster", "cookiemonster_cr": name}
 }
 
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-func newPodForCR(cr *rbxov1alpha1.Cookiemonster) *corev1.Pod {
-	labels := map[string]string{
-		"app": cr.Name,
-	}
-	return &corev1.Pod{
+func (r *ReconcileCookiemonster) deploymentForCookiemonster(m *rbxov1alpha1.Cookiemonster) *appsv1.Deployment {
+	ls := labelsForCookiemonster(m.Name)
+	replicas := m.Spec.Size
+
+	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
-			Namespace: cr.Namespace,
-			Labels:    labels,
+			Name:      m.Name,
+			Namespace: m.Namespace,
 		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:    "busybox",
-					Image:   "busybox",
-					Command: []string{"sleep", "3600"},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: ls,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: ls,
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:    "cookiemonster",
+							Image:   "seungkyua/cookiemonster:latest",
+							ImagePullPolicy: corev1.PullAlways,
+							Ports: []corev1.ContainerPort{
+								{
+									ContainerPort: 8080,
+								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name: "config",
+									MountPath:"/app/config",
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name:"config",
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "cookiemonster-cm-config",
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 	}
+	// Set Memcached instance as the owner and controller
+	controllerutil.SetControllerReference(m, dep, r.scheme)
+	return dep
 }

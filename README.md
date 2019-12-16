@@ -10,7 +10,6 @@
 ## For install
 ```sh 
 go mod vendor  
-make clean  
 make build-linux  
 make docker 
 ```

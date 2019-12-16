@@ -3,5 +3,25 @@ kind: Cookiemonster
 metadata:
   name: example-cookiemonster
 spec:
-  # Add fields here
-  size: 3
+  size: 1
+  data:
+    namespace:
+      - name: openstack
+        resource:
+          - kind: deployment
+            name:
+            target: 1
+          - kind: daemonset
+            name:
+            target: 1
+          - kind: statefulset
+            name: mariadb
+            target: 1
+          - kind: statefulset
+            name: rabbitmq
+            target: 1
+    interval: 60
+    duration: 600
+    slack: true
+    change: true
+    bmcad: 192.168.0.0

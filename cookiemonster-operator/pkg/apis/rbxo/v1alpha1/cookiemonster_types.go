@@ -29,11 +29,12 @@ type Data struct{
 	Slackwebhook string `json:"slackwebhook"`
 	Change bool `json:"change"`
 	Bmcad string `json:"bmcad"`
+}
 
-	}
 type CookiemonsterSpec struct {
 	Size int32 `json:"size"`
 	Data Data `json:"data"`
+
 
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file

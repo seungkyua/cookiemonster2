@@ -141,6 +141,7 @@ func (r *ReconcileCookiemonster) Reconcile(request reconcile.Request) (reconcile
 	}
 	//
 
+
 	// Deployment create
 	found := &appsv1.Deployment{}
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, found)
@@ -159,7 +160,7 @@ func (r *ReconcileCookiemonster) Reconcile(request reconcile.Request) (reconcile
 	}
 	//
 
-	//configmap update
+	//Deployment update
 	if !reflect.DeepEqual(found, r.deploymentForCookiemonster(instance)){
 		found = r.deploymentForCookiemonster(instance)
 		reqLogger.Info("Change new option in cookiemonster deployment", "Deployment.Namespace", found.Namespace, "Deployment.Name", found.Name)
@@ -176,12 +177,13 @@ func (r *ReconcileCookiemonster) Reconcile(request reconcile.Request) (reconcile
 	podList := &corev1.PodList{}
 	labelSelector := labels.SelectorFromSet(labelsForCookiemonster(instance.Name))
 	listops := &client.ListOptions{Namespace: instance.Namespace, LabelSelector: labelSelector}
-	err = r.client.List(context.TODO(), listops, podList)
+	err = r.client.List(context.TODO(), podList, listops)
 	if err != nil {
 		reqLogger.Error(err, "Failed to list pods", "Cookiemonster.Namespace", instance.Namespace, "Cookiemonster.Name", instance.Name)
 		return reconcile.Result{}, err
 	}
 	podNames := getPodNames(podList.Items)
+
 	if !reflect.DeepEqual(podNames, instance.Status.Nodes) {
 		instance.Status.Nodes = podNames
 		err := r.client.Status().Update(context.TODO(), instance)
@@ -195,7 +197,7 @@ func (r *ReconcileCookiemonster) Reconcile(request reconcile.Request) (reconcile
 	configmaplist := &corev1.ConfigMapList{}
 	labelSelector2 := labels.SelectorFromSet(labelsForCookiemonster(instance.Name))
 	listops2 := &client.ListOptions{Namespace: instance.Namespace, LabelSelector: labelSelector2}
-	err = r.client.List(context.TODO(), listops2, podList)
+	err = r.client.List(context.TODO(), configmaplist, listops2)
 	if err != nil {
 		reqLogger.Error(err, "Failed to list configmap", "Cookiemonster.Namespace", instance.Namespace, "Cookiemonster.Name", instance.Name)
 		return reconcile.Result{}, err
@@ -288,7 +290,6 @@ func (r *ReconcileCookiemonster) deploymentForCookiemonster(m *rbxov1alpha1.Cook
 			},
 		},
 	}
-
 	controllerutil.SetControllerReference(m, dep, r.scheme)
 	return dep
 }
@@ -309,4 +310,5 @@ func (r *ReconcileCookiemonster) configForCookiemonster(m *rbxov1alpha1.Cookiemo
 	// Set Memcached instance as the owner and controller
 	controllerutil.SetControllerReference(m, configmap, r.scheme)
 	return configmap
+
 }

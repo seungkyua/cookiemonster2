@@ -16,5 +16,5 @@ func main() {
 	handler.ConfigHandler{}.SetHandler(e.Group("/api/v1/config"))
 	handler.NodeHandler{}.SetHandler(e.Group("/api/v1/node"))
 
-	e.Logger.Debug(e.Start(":10080"))
+	e.Logger.Debug(e.Start(":8080"))
 }

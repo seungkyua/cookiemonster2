@@ -106,7 +106,7 @@ func (r *ReconcileCookiemonster) Reconcile(request reconcile.Request) (reconcile
 
 	// configmap create
 	found_config:=&corev1.ConfigMap{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: "cookiemonster-cm-config",Namespace:instance.Namespace}, found_config)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name,Namespace:instance.Namespace}, found_config)
 	if err!= nil && errors.IsNotFound(err){
 		conm:= r.configForCookiemonster(instance)
 		reqLogger.Info("Creating a new configmap", "Configmap.Namespace", conm.Namespace, "Configmap.Name",conm.Name)

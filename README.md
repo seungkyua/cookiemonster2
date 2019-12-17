@@ -23,8 +23,8 @@ docker push seungkyua/cookiemonster
 ## Start in local environment  
 ```sh
 go run server.go  
-curl -X POST http://localhost:10080/api/v1/pod/start  
-curl -X POST http://localhost:10080/api/v1/pod/stop  
+curl -X POST http://localhost:8080/api/v1/pod/start  
+curl -X POST http://localhost:8080/api/v1/pod/stop  
 ```
 
 ## Start in k8s cluster

@@ -1,11 +1,11 @@
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
 
-ENV OPERATOR=/usr/local/bin/coockiemonster-operator \
+ENV OPERATOR=/usr/local/bin/cookiemonster-operator \
     USER_UID=1001 \
-    USER_NAME=coockiemonster-operator
+    USER_NAME=cookiemonster-operator
 
 # install operator binary
-COPY build/_output/bin/coockiemonster-operator ${OPERATOR}
+COPY build/_output/bin/cookiemonster-operator ${OPERATOR}
 
 COPY build/bin /usr/local/bin
 RUN  /usr/local/bin/user_setup

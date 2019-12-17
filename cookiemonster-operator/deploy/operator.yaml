@@ -1,24 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: coockiemonster-operator
+  name: cookiemonster-operator
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: coockiemonster-operator
+      name: cookiemonster-operator
   template:
     metadata:
+      name: cookiemonster-operator-pod
       labels:
-        name: coockiemonster-operator
+        name: cookiemonster-operator
     spec:
       serviceAccountName: coockiemonster-operator
       containers:
-        - name: coockiemonster-operator
+        - name: cookiemonster-operator
           # Replace this with the built image name
           image: gtp7473/operator-sdk:v1
           command:
-          - coockiemonster-operator
+          - cookiemonster-operator
           imagePullPolicy: Always
           env:
             - name: WATCH_NAMESPACE
@@ -30,4 +31,4 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
-              value: "coockiemonster-operator"
+              value: "cookiemonster-operator"

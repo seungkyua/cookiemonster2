@@ -17,7 +17,7 @@ spec:
       containers:
         - name: cookiemonster-operator
           # Replace this with the built image name
-          image: gtp7473/operator-sdk:v1
+          image: gtp7473/operator-sdk:v2
           command:
           - cookiemonster-operator
           imagePullPolicy: Always

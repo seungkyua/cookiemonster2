@@ -9,7 +9,7 @@ spec:
     listKind: CookiemonsterList
     plural: cookiemonsters
     singular: cookiemonster
-    shortNames: ["coo"]
+    shortNames: ["coomon"]
   scope: Namespaced
   subresources:
     status: {}

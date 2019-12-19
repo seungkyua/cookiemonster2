@@ -103,10 +103,12 @@ func (r *ReconcileCookiemonster) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, err
 	}
 	//
+	deployname := instance.Name + "-deployment"
+	configmapname := instance.Name + "-configmap"
 
 	// configmap create
 	found_config:=&corev1.ConfigMap{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name,Namespace:instance.Namespace}, found_config)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: configmapname,Namespace:instance.Namespace}, found_config)
 	if err!= nil && errors.IsNotFound(err){
 		conm:= r.configForCookiemonster(instance)
 		reqLogger.Info("Creating a new configmap", "Configmap.Namespace", conm.Namespace, "Configmap.Name",conm.Name)
@@ -144,7 +146,7 @@ func (r *ReconcileCookiemonster) Reconcile(request reconcile.Request) (reconcile
 
 	// Deployment create
 	found := &appsv1.Deployment{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, found)
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: deployname, Namespace: instance.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
 		dep := r.deploymentForCookiemonster(instance)
 		reqLogger.Info("Creating a new Deployment", "Deployment.Namespace", dep.Namespace, "Deployment.Name", dep.Name)
@@ -159,11 +161,10 @@ func (r *ReconcileCookiemonster) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, err
 	}
 	//
-
 	//Deployment update
-	if !reflect.DeepEqual(found, r.deploymentForCookiemonster(instance)){
+	if !reflect.DeepEqual(found.Spec.Replicas,r.deploymentForCookiemonster(instance).Spec.Replicas) {
 		found = r.deploymentForCookiemonster(instance)
-		reqLogger.Info("Change new option in cookiemonster deployment", "Deployment.Namespace", found.Namespace, "Deployment.Name", found.Name)
+		reqLogger.Info("Change new spec in cookiemonster deployment", "Deployment.Namespace", found.Namespace, "Deployment.Name", found.Name)
 		err = r.client.Update(context.TODO(), found)
 		if err != nil {
 			reqLogger.Error(err, "Failed to change Deployment", "Deployment.Namespace", found.Namespace, "Deployment.Name", found.Name)
@@ -186,6 +187,7 @@ func (r *ReconcileCookiemonster) Reconcile(request reconcile.Request) (reconcile
 
 	if !reflect.DeepEqual(podNames, instance.Status.Nodes) {
 		instance.Status.Nodes = podNames
+		reqLogger.Info("CR cookimonster node update", "pod.Namespace", found.Namespace, "pod.Name", found.Name)
 		err := r.client.Status().Update(context.TODO(), instance)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update Cookiemonster status(pod)")
@@ -195,9 +197,7 @@ func (r *ReconcileCookiemonster) Reconcile(request reconcile.Request) (reconcile
 
 	// cr의 configmap decsribe section
 	configmaplist := &corev1.ConfigMapList{}
-	labelSelector2 := labels.SelectorFromSet(labelsForCookiemonster(instance.Name))
-	listops2 := &client.ListOptions{Namespace: instance.Namespace, LabelSelector: labelSelector2}
-	err = r.client.List(context.TODO(), configmaplist, listops2)
+	err = r.client.List(context.TODO(), configmaplist, listops)
 	if err != nil {
 		reqLogger.Error(err, "Failed to list configmap", "Cookiemonster.Namespace", instance.Namespace, "Cookiemonster.Name", instance.Name)
 		return reconcile.Result{}, err
@@ -206,6 +206,7 @@ func (r *ReconcileCookiemonster) Reconcile(request reconcile.Request) (reconcile
 	if !reflect.DeepEqual(configNames, instance.Status.Maps) {
 		instance.Status.Maps = configNames
 		err := r.client.Status().Update(context.TODO(), instance)
+		reqLogger.Info("CR cookimonster configmap update", "pod.Namespace", found.Namespace, "pod.Name", found.Name)
 		if err != nil {
 			reqLogger.Error(err, "Failed to update Cookiemonster status(configmap)")
 			return reconcile.Result{}, err
@@ -239,11 +240,12 @@ func labelsForCookiemonster(name string) map[string]string {
 
 func (r *ReconcileCookiemonster) deploymentForCookiemonster(m *rbxov1alpha1.Cookiemonster) *appsv1.Deployment {
 	ls := labelsForCookiemonster(m.Name)
-	replicas := m.Spec.Size
-
+	replicas := m.Spec.Data.Size
+	deployname := m.Name + "-deployment"
+	configmapname := m.Name + "-configmap"
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      m.Name,
+			Name:      deployname,
 			Namespace: m.Namespace,
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -280,7 +282,7 @@ func (r *ReconcileCookiemonster) deploymentForCookiemonster(m *rbxov1alpha1.Cook
 							VolumeSource: corev1.VolumeSource{
 								ConfigMap: &corev1.ConfigMapVolumeSource{
 									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "cookiemonster-cm-config",
+										Name: configmapname,
 									},
 								},
 							},
@@ -296,10 +298,11 @@ func (r *ReconcileCookiemonster) deploymentForCookiemonster(m *rbxov1alpha1.Cook
 
 func (r *ReconcileCookiemonster) configForCookiemonster(m *rbxov1alpha1.Cookiemonster) *corev1.ConfigMap {
 	ls := labelsForCookiemonster(m.Name)
+	configmapname := m.Name + "-configmap"
 	specfile, _ := yaml.Marshal(&m.Spec.Data)
 	configmap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      m.Name,
+			Name:      configmapname,
 			Namespace: m.Namespace,
 			Labels: ls,
 		},

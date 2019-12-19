@@ -32,7 +32,6 @@ type Data struct{
 }
 
 type CookiemonsterSpec struct {
-	Size int32 `json:"size"`
 	Data Data `json:"data"`
 
 

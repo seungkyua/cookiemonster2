@@ -16,3 +16,5 @@ namespace:
 interval: 60
 duration: 600
 slack: true
+change: true
+bmcad: 192.168.0.0

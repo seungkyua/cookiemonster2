@@ -1,13 +1,10 @@
----
-apiVersion: v1
-kind: ConfigMap
+apiVersion: rbxo.coockie.com/v1alpha1
+kind: Cookiemonster
 metadata:
-  name: cookiemonster-cm-config
-  namespace: cookiemonster
-  labels:
-    component: cookiemonster
-data:
-  config.yaml: |-
+  name: cookiemonster-example
+spec:
+  data:
+    size: 1
     namespace:
       - name: openstack
         resource:

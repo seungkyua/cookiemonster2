@@ -1,13 +1,12 @@
 package handler
 
 import (
+	"github.com/labstack/echo"
+	"github.com/seungkyua/cookiemonster2/pkg/domain"
 	"log"
 	"math/rand"
 	"net/http"
 	"time"
-
-	"github.com/labstack/echo"
-	"github.com/seungkyua/cookiemonster2/pkg/domain"
 )
 
 type ConfigHandler struct{}

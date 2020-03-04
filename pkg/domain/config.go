@@ -2,9 +2,9 @@ package domain
 
 import (
 	"fmt"
-	"log"
-
 	"github.com/spf13/viper"
+	"log"
+	"reflect"
 )
 
 type Resource struct {
@@ -23,9 +23,13 @@ type Config struct {
 	Interval  int64
 	Duration  int64
 	Slack     bool
+	Slackwebhook string
+	Change    bool
+	Bmcad 	string
 }
 
 var config *Config
+var path string
 
 func init() {
 	path := "config"
@@ -33,9 +37,24 @@ func init() {
 	if err := config.ReadConfig(path); err != nil {
 		log.Println(err)
 	}
+
+}
+
+func SlackON() bool {
+	return config.Slack
+}
+
+func (c *Config) ConfigCheck(target *Config) bool {
+	if reflect.DeepEqual(c, target) {
+		return true
+	}
+	return false
 }
 
 func GetConfig() *Config {
+	if err := config.ReadConfig(path); err != nil {
+		log.Println(err)
+	}
 	return config
 }
 
@@ -55,4 +74,13 @@ func (c *Config) ReadConfig(path string) error {
 	}
 
 	return nil
+}
+
+func (c *Config) ResetConfig() {
+	var configNew *Config
+	configNew = &Config{}
+	configNew.ReadConfig(path)
+	if c.ConfigCheck(configNew) && config.Change {
+		config = configNew
+	}
 }
